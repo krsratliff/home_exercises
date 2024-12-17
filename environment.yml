@@ -1,0 +1,23 @@
+channels:
+  - defaults
+dependencies:
+  - python=3.11.*
+  - jupyter=1.0.*
+  - numpy=1.26.*
+  - pandas=2.1.*
+  - matplotlib=3.8.*
+  - seaborn=0.13.*
+  - conda-forge::missingno=0.5.*
+  - h5py=3.11.*
+  - scipy=1.13.*
+  - sqlalchemy=1.4.*
+  - openpyxl=3.1.*
+  - sas7bdat=2.2.*
+  - thefuzz=0.22.*
+  - recordlinkage=0.16.*
+  - statsmodels=0.14.*
+  - pyarrow=14.0.*
+  - pingouin=0.5.*
+  - scikit-learn=1.4.*
+  - fancyimpute=0.7.*
+  - numbers-parser=4.14.*
