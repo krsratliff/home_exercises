@@ -160,7 +160,7 @@ def import_exercise_sheet(filepath, sheetname):
 
     # verify that the sheet contains only one table
     if len(sheet.tables) != 1:
-        raise ValueError("Speciied sheet contains >1 table")
+        raise ValueError("Specified sheet contains >1 table")
 
     # obtain the values in that single table
     #   as a list of lists
@@ -186,7 +186,7 @@ def import_exercise_sheet(filepath, sheetname):
 
 # Import the exercise records for a specified month
 #   checks that data matches requested year and month
-def import_month(filepath, year, month):
+def import_month(filepath, year = date.today().year, month = date.today().month):
     """Import and clean the exercise records for a given
     month.
     
@@ -202,6 +202,8 @@ def import_month(filepath, year, month):
 
     year, month : int
         The year and month for which to import the data.
+
+        Default values: current year and month.
     
        
     Returns
@@ -391,7 +393,7 @@ def exercise_projection(filepath, exercise, goal_total):
 #   max reps in a set
 #   average reps per set
 
-def exercise_statistics(filepath, exercise, year, month):
+def exercise_statistics(filepath, exercise, year = date.today().year, month = date.today().month):
     """Display statistics about a specified exercise for a specified month.
     
     The exercise records must be in an appropriately-formatted
@@ -409,6 +411,8 @@ def exercise_statistics(filepath, exercise, year, month):
 
     year, month : int
         The year and month for which to analyze the specified exercise.
+
+        Default values: current year and month.
     
 
     Returns
@@ -700,18 +704,25 @@ def stratify_exercise_month(
 
 
 # Return stacked bar chart for a given month and exercise
-def stacked_bar_exercise_month(df, exercise):
-    """Produce a stacked bar chart for the given exercise per day.
+def stacked_bar_exercise_month(filepath, exercise, year = date.today().year, month = date.today().month):
+    """Produce a stacked bar chart for the given exercise for the given month.
+
+    The exercise records must be in an appropriately-formatted
+        Apple Numbers file.
 
     Parameters
     ----------
-    df : pandas.DataFrame
-        The data containing the exercise records of interest.
-
-        This DataFrame must be appropriately formatted (see "Notes").
+    filepath : str
+        The path to the Apple Numbers file containing the exercise
+        records.
 
     exercise : string
         The name of the exercise to plot.
+
+    year, month : int
+        The year and month for which to produce the bar chart.
+
+        Default values: current year and month.
 
         
     Returns
@@ -723,19 +734,20 @@ def stacked_bar_exercise_month(df, exercise):
     
     Notes
     -----
-        The given DataFrame's columns must be "date", "time", 
-        "location", "exercise", and "count". 
-        
-        The "date" column must contain only dates for a single month.
+        The data must be contained in a sheet titled "YYYY-MMMM", e.g. 
+        "2024-November" to analyze the month of November 2024.
 
-        The columns "date", "location", and "exercise" may include 
-        empty entries; these are automatically forward-filled.
+        The sheet must contain a single table (the name of the table 
+        doesn't matter). That table's columns must be "date", "time", 
+        "location", "exercise", and "count".
+
+        The columns "date", "location", and "exercise" may include empty
+        entries; these are automatically forward-filled.
 
         The columns "time" and "count" must be entirely nonempty.
-
-        The output of import_month() can be safely used for the given
-        DataFrame.
     """
+
+    df = import_month(filepath, year=year, month=month)
 
     # stratify the given records
     nth_set_list = stratify_exercise_month(df, exercise)
@@ -774,6 +786,11 @@ def stacked_bar_exercise_month(df, exercise):
     # rotate the date labels for readability
     ax.set_xticks(ax.get_xticks(), ax.get_xticklabels(), rotation=90)
 
+    # set title
+    monthname = calendar.month_name[month]
+    title = '{} per day for {} {}'.format(exercise.capitalize(), monthname, year)
+    fig.suptitle(title, y=0.93)
+
     # return the figure and axes objects
     return fig, ax
 
@@ -782,7 +799,186 @@ def stacked_bar_exercise_month(df, exercise):
 
 
 
-# write function to produce overlaid line graphs for cumulative totals for each day
+# write function to produce overlaid line graphs for cumulative totals for each day or month
+def cumsum_exercise_plot(filepath, exercise, **kwargs):
+    """Plot cumulative totals for a specified exercise for the specified month(s).
+
+    The exercise records must be in an appropriately-formatted
+        Apple Numbers file.
+
+        
+    Parameters
+    ----------
+    filepath : str
+        The path to the Apple Numbers file containing the exercise
+        records.
+
+    exercise : str
+        The name of the exercise to analyze.
+
+        
+    Additional parameters
+    ---------------------
+    month : (int, int)
+        The year (first element) and month (second element) for which
+        to plot the exercise.
+
+        Produces a single line plot.
+
+        Cannot be used at the same time as startmonth and endmonth.
+
+    startmonth, endmonth : (int, int)
+        The year(s) (first element) and months (second element) for
+        which to plot the exercise.
+
+        Produces overlaid line plots.
+
+        Cannot be used at the same time as month.
+
+    
+    Returns
+    -------
+    fig, ax
+        The Matplotlib figure and axes objects containing the line
+        plot(s).
+
+    Notes
+    -----
+        The data must be contained in a sheet titled "YYYY-MMMM", e.g. 
+        "2024-November" to analyze the month of November 2024.
+
+        The sheet must contain a single table (the name of the table 
+        doesn't matter). That table's columns must be "date", "time", 
+        "location", "exercise", and "count".
+
+        The columns "date", "location", and "exercise" may include empty
+        entries; these are automatically forward-filled.
+
+        The columns "time" and "count" must be entirely nonempty.
+    """
+
+    # making sure that either month is specified, or both startmonth and endmonth,
+    #   but not both
+    if ("month" in kwargs.keys()) and (
+        ("startmonth" in kwargs.keys()) or ("endmonth" in kwargs.keys())
+    ):
+            raise ValueError(
+                "month cannot be used alongside startmonth and endmonth"
+            )
+    
+    if ("month" not in kwargs.keys()) and (
+        ("startmonth" not in kwargs.keys()) or ("endmonth" not in kwargs.keys())
+    ):
+        raise ValueError(
+            "Must specify either month, or startmonth and endmonth"
+        )
+        
+    #######################
+    # get lists of month(s), formatted as e.g. "2024-10"
+    #######################
+    if "month" in kwargs.keys():
+        year = kwargs['month'][0]
+        month = kwargs['month'][1]
+
+        # list containing the single month
+        monthlist = ["{}-{}".format(year, month)]
+
+        
+
+    if "startmonth" in kwargs.keys():
+        # get start and end year and month
+        startyear = kwargs['startmonth'][0]
+        startmonth = kwargs['startmonth'][1]
+        endyear = kwargs['endmonth'][0]
+        endmonth = kwargs['endmonth'][1]
+
+        # get full dates, for pandas use
+        startdate = '{}-{}-01'.format(startyear, startmonth)
+        enddate = '{}-{}-01'.format(endyear, endmonth)
+
+        # list containing all sheetnames in specified range
+        monthlist = [
+            i.strftime("%Y-%m") for i in pd.date_range(
+                start=startdate, end=enddate, freq="MS"
+            )
+        ]
+
+    ###########
+    # MAKE PLOT
+    ###########
+    fig, ax = plt.subplots()
+
+    for year_month in monthlist:
+        # split e.g. "2024-10" on hyphen
+        split_month = year_month.split('-')
+        year = int(split_month[0])
+        month = int(split_month[1])
+
+        # import data for e.g. "2024-10"
+        df = import_month(filepath, year=year, month=month)
+        
+        # filter for specified exercise
+        df_filtered = df[df['exercise'] == exercise]
+
+        # get totals for each day, then cumulative sum
+        #   to get running total
+        cumulative = df_filtered.groupby('date')['count'].sum().cumsum()
+
+        # get isolated "day" column
+        cumulative = cumulative.reset_index()
+
+        cumulative['day'] = cumulative['date'].dt.day
+
+        # make line plot
+        ax.plot(
+            cumulative['day'], cumulative['count'], marker=".",
+            label=year_month
+        )
+
+    # rotate x-axis labels
+    ax.set_xticks(
+        ax.get_xticks(),
+        ax.get_xticklabels(),
+        rotation=90
+    )
+
+    # make legend
+    ax.legend()
+
+    # make title
+    if 'month' in kwargs.keys():
+        monthname = calendar.month_name[month]
+        title = '{} for {} {}'.format(exercise.capitalize(), monthname, year)
+
+    if 'startmonth' in kwargs.keys():
+        title = '{} (cum. total) for {}-{} through {}-{}'.format(
+            exercise.capitalize(), startyear, startmonth, endyear, endmonth
+        )
+
+    fig.suptitle(title, y=0.93)
+
+
+
+
+    return fig, ax
+
+
+
+
+    
+
+    
+    
+
+
+
+
+
+
+
+
+
+
 
 
 
